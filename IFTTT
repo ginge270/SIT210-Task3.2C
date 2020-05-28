@@ -1,0 +1,61 @@
+import RPi.GPIO as GPIO
+import time
+import requests
+from gpiozero import LED
+
+#Set the GPIO naming convention
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
+#Defining the pins
+pinpir = 4
+green_led = LED(17)
+
+#Make sure the led is off
+green_led.off()
+
+print("Motion Detector (CTRL-C to exit)")
+
+#Set pin as input
+GPIO.setup(pinpir, GPIO.IN)
+
+#variables to hold the current and last state
+currentstate = 0
+previousstate = 0
+
+try:
+    print("Waiting for PIR to settle...")
+    #Loop until PIR output is 0
+    while GPIO.input(pinpir) == 1:
+        currentstate = 0
+    
+    print("Ready...")
+    #Loop until user quits
+    while True:
+        currentstate = GPIO.input(pinpir)
+        
+        #if the PIR sensor is triggered, turn LED on, send notification, record previous state
+        if currentstate == 1 and previousstate == 0:
+            print("Motion Detected!")
+            green_led.on()
+            r = requests.post('https://maker.ifttt.com/trigger/motion_detected/with/key/b1oUXXOgcwFSkg6M6Vvfra')
+            previousstate = 1
+            print("Waiting 10 second")
+            #wait for 10 seconds
+            time.sleep(10)
+        
+        #if the PIR has returned to ready state, turn off LED, send notification, record previous state
+        elif currentstate == 0 and previousstate == 1:
+            print("Motion Stopped. Ready...")
+            r = requests.post('https://maker.ifttt.com/trigger/motion_stopped/with/key/b1oUXXOgcwFSkg6M6Vvfra')
+            green_led.off()
+            previousstate = 0
+            
+            #wait for 1 second
+            time.sleep(1)
+
+#exit program, turn of LED, Reset GPIO settings
+except KeyboardInterrupt:
+    print("Quit")
+    green_led.off()
+    GPIO.cleanup()
